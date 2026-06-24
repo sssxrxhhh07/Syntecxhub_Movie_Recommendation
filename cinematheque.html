@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINEMATHEQUE — Movie Recommender</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Courier+Prime:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:     #0e0608;
+    --bg-dark:     #1a0a0f;
+    --bg-mid:      #2d1518;
+    --bg-card:     #231013;
+    --amber:       #d4840a;
+    --amber-light: #e8b84b;
+    --cream:       #f5e6c8;
+    --cream-dim:   #c9b89a;
+    --rose:        #c4607a;
+    --rose-dim:    #8c3f52;
+    --gold:        #e8b84b;
+    --gold-dim:    #a07c28;
+    --text:        #f0dfc2;
+    --text-dim:    #8a7060;
+    --border:      #4a2530;
+    --bulb-on:     #ffe066;
+    --bulb-off:    #5c3d10;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.35;
+  }
+  .marquee-frame {
+    background: var(--bg-dark);
+    border-bottom: 4px solid var(--amber);
+    padding: 0 0 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .marquee-frame::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--amber), var(--gold), var(--amber));
+  }
+  .bulb-row {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    padding: 16px 0 8px;
+    flex-wrap: wrap;
+  }
+  .bulb {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--bulb-off);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .bulb.lit {
+    background: var(--bulb-on);
+    box-shadow: 0 0 6px 2px #ffe06699, 0 0 14px 4px #d4840a55;
+  }
+  .marquee-inner { text-align: center; padding: 1.5rem 2rem 0.5rem; }
+  .marquee-eyebrow {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.35em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .marquee-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.8rem, 8vw, 5.5rem);
+    font-weight: 900;
+    line-height: 0.95;
+    color: var(--cream);
+    text-shadow: 3px 3px 0 var(--bg-deep), 0 0 40px #d4840a44;
+    letter-spacing: -0.01em;
+  }
+  .marquee-title em { font-style: italic; color: var(--amber-light); }
+  .marquee-sub {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: var(--rose);
+    margin-top: 0.8rem;
+    text-transform: uppercase;
+  }
+  .marquee-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1.2rem auto 0;
+    max-width: 500px;
+  }
+  .marquee-divider span { flex: 1; height: 1px; background: var(--border); }
+  .marquee-divider i { font-style: normal; font-family: 'Courier Prime', monospace; font-size: 1rem; color: var(--amber); }
+  .tabs-bar {
+    display: flex;
+    justify-content: center;
+    background: var(--bg-mid);
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+    padding: 0 1rem;
+  }
+  .tab-btn {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    padding: 1rem 1.4rem;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--cream); }
+  .tab-btn.active { color: var(--amber-light); border-bottom-color: var(--amber); }
+  .main { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.8rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--cream); }
+  .section-badge {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--amber);
+    text-transform: uppercase;
+    border: 1px solid var(--amber);
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+  .search-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.8rem 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+  .search-wrap::before {
+    content: 'NOW SHOWING';
+    position: absolute;
+    top: -10px; left: 20px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--amber);
+    background: var(--bg-card);
+    padding: 0 8px;
+  }
+  .search-label {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--cream-dim);
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .search-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .search-input {
+    flex: 1;
+    min-width: 220px;
+    background: var(--bg-mid);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.95rem;
+    padding: 0.7rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input::placeholder { color: var(--text-dim); }
+  .search-input:focus { border-color: var(--amber); }
+  .count-select {
+    background: var(--bg-mid);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--cream);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    padding: 0.7rem 0.8rem;
+    outline: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: var(--bg-deep);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 3px;
+    padding: 0.75rem 1.6rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { background: var(--gold); }
+  .btn-primary:active { transform: scale(0.98); }
+  .genre-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .chip {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: none;
+  }
+  .chip:hover, .chip.active { color: var(--amber-light); border-color: var(--amber); background: #d4840a18; }
+  #results-area { min-height: 100px; }
+  .results-header {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed var(--border);
+  }
+  .movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .movie-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1.2rem 1.2rem 1rem;
+    position: relative;
+    transition: border-color 0.2s, transform 0.15s;
+    overflow: hidden;
+  }
+  .movie-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--amber);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .movie-card:hover { border-color: var(--amber); transform: translateY(-2px); }
+  .movie-card:hover::before { opacity: 1; }
+  .card-rank { position: absolute; top: 10px; right: 12px; font-family: 'Courier Prime', monospace; font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.1em; }
+  .card-title { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: var(--cream); line-height: 1.3; margin-bottom: 0.3rem; padding-right: 2.5rem; }
+  .card-year { font-family: 'Courier Prime', monospace; font-size: 0.72rem; color: var(--amber); margin-bottom: 0.6rem; }
+  .card-genres { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.7rem; }
+  .card-genre {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rose);
+    border: 1px solid var(--rose-dim);
+    padding: 1px 6px;
+    border-radius: 1px;
+  }
+  .card-score { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+  .score-bar-track { flex: 1; height: 3px; background: var(--bg-mid); border-radius: 2px; overflow: hidden; }
+  .score-bar-fill { height: 100%; background: linear-gradient(90deg, var(--amber), var(--gold)); border-radius: 2px; transition: width 0.6s ease; }
+  .score-label { font-family: 'Courier Prime', monospace; font-size: 0.65rem; color: var(--gold); min-width: 30px; text-align: right; }
+  .card-blurb { font-size: 0.78rem; color: var(--cream-dim); line-height: 1.55; margin-top: 0.6rem; font-style: italic; }
+  .error-box {
+    background: #3a0a1566;
+    border: 1px solid var(--rose-dim);
+    border-radius: 3px;
+    padding: 1rem 1.2rem;
+    color: var(--rose);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.82rem;
+  }
+  .suggest-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1rem 1.2rem;
+    margin-top: 0.8rem;
+  }
+  .suggest-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .suggest-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .suggest-item {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.78rem;
+    color: var(--amber-light);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    background: var(--bg-mid);
+  }
+  .suggest-item:hover { border-color: var(--amber); }
+  /* EDA */
+  .eda-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .eda-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 3px; padding: 1.1rem 1rem; text-align: center; }
+  .eda-stat-num { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 900; color: var(--amber-light); line-height: 1; margin-bottom: 0.3rem; }
+  .eda-stat-label { font-family: 'Courier Prime', monospace; font-size: 0.62rem; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; }
+  .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 3px; padding: 1.4rem 1.4rem 1.2rem; margin-bottom: 1rem; }
+  .chart-title { font-family: 'Courier Prime', monospace; font-size: 0.68rem; letter-spacing: 0.2em; color: var(--amber); text-transform: uppercase; margin-bottom: 1rem; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-family: 'Courier Prime', monospace; font-size: 0.65rem; color: var(--cream-dim); letter-spacing: 0.05em; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .charts-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .cleaning-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.78rem; color: var(--cream-dim); font-family: 'Courier Prime', monospace; line-height: 1.8; }
+  /* Examples */
+  .example-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: 3px; padding: 1.5rem; margin-bottom: 1.2rem; }
+  .example-query { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1rem; color: var(--amber-light); margin-bottom: 0.6rem; }
+  .example-query::before { content: '"'; }
+  .example-query::after { content: '"'; }
+  .example-desc { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem; font-family: 'Courier Prime', monospace; letter-spacing: 0.05em; }
+  .example-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .example-pill { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 2px; padding: 5px 10px; cursor: pointer; transition: border-color 0.15s; }
+  .example-pill:hover { border-color: var(--amber); }
+  .example-pill-title { font-family: 'Playfair Display', serif; font-size: 0.82rem; color: var(--cream); }
+  .example-pill-year { font-family: 'Courier Prime', monospace; font-size: 0.62rem; color: var(--text-dim); margin-left: 6px; }
+  /* About */
+  .about-section { max-width: 680px; }
+  .about-h { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; color: var(--cream); margin: 1.5rem 0 0.6rem; }
+  .about-p { font-size: 0.85rem; line-height: 1.75; color: var(--cream-dim); margin-bottom: 0.5rem; }
+  .code-block { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 3px; padding: 1rem 1.2rem; font-family: 'Courier Prime', monospace; font-size: 0.75rem; color: var(--amber-light); line-height: 1.7; overflow-x: auto; margin: 0.8rem 0 1rem; white-space: pre; }
+  .pipeline-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding: 1rem 0; border-bottom: 1px dashed var(--border); }
+  .pipeline-row:last-child { border: none; }
+  .pip-step { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 2px; padding: 6px 12px; font-family: 'Courier Prime', monospace; font-size: 0.7rem; color: var(--cream); letter-spacing: 0.08em; white-space: nowrap; }
+  .pip-arrow { color: var(--amber); font-size: 0.8rem; }
+  .footer { text-align: center; padding: 2rem 1rem 3rem; font-family: 'Courier Prime', monospace; font-size: 0.65rem; letter-spacing: 0.15em; color: var(--text-dim); border-top: 1px solid var(--border); text-transform: uppercase; }
+  .footer span { color: var(--amber); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-dark); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 600px) {
+    .marquee-title { font-size: 2.4rem; }
+    .search-row { flex-direction: column; }
+    .btn-primary { width: 100%; }
+    .charts-two-col { grid-template-columns: 1fr; }
+    .cleaning-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="marquee-frame">
+  <div class="bulb-row" id="bulbRow"></div>
+  <div class="marquee-inner">
+    <div class="marquee-eyebrow">★ Est. 2024 · Dataset-Powered ★</div>
+    <h1 class="marquee-title">CINÉ<em>ma</em>THEQUE</h1>
+    <div class="marquee-sub">Content-Based Movie Recommendation Engine</div>
+    <div class="marquee-divider"><span></span><i>◆</i><span></span></div>
+  </div>
+  <div class="bulb-row" id="bulbRow2"></div>
+</header>
+
+<nav class="tabs-bar">
+  <button class="tab-btn active" data-tab="recommend">▶ Recommend</button>
+  <button class="tab-btn" data-tab="eda">⊞ Dataset EDA</button>
+  <button class="tab-btn" data-tab="examples">✦ Sample Queries</button>
+  <button class="tab-btn" data-tab="about">⊛ How It Works</button>
+</nav>
+
+<main class="main">
+
+  <section class="panel active" id="tab-recommend">
+    <div class="search-wrap">
+      <label class="search-label">Name a film you love — we'll find what to watch next.</label>
+      <div class="search-row">
+        <input class="search-input" id="movieInput" type="text" placeholder="e.g. The Godfather, Alien, Casablanca…" autocomplete="off"/>
+        <select class="count-select" id="countSelect">
+          <option value="5">5 films</option>
+          <option value="8" selected>8 films</option>
+          <option value="12">12 films</option>
+        </select>
+        <button class="btn-primary" id="searchBtn" onclick="getRecommendations()">Find Films</button>
+      </div>
+      <div class="genre-chips" id="genreChips"></div>
+    </div>
+    <div id="results-area"></div>
+  </section>
+
+  <section class="panel" id="tab-eda">
+    <div class="section-head">
+      <h2 class="section-title">Dataset Exploration</h2>
+      <span class="section-badge">Curated · 200 Films</span>
+    </div>
+    <div class="eda-stats-grid">
+      <div class="eda-stat"><div class="eda-stat-num">200</div><div class="eda-stat-label">Films Indexed</div></div>
+      <div class="eda-stat"><div class="eda-stat-num">14</div><div class="eda-stat-label">Genre Classes</div></div>
+      <div class="eda-stat"><div class="eda-stat-num">1927</div><div class="eda-stat-label">Earliest Entry</div></div>
+      <div class="eda-stat"><div class="eda-stat-num">2023</div><div class="eda-stat-label">Latest Entry</div></div>
+      <div class="eda-stat"><div class="eda-stat-num">7.4</div><div class="eda-stat-label">Avg Rating</div></div>
+      <div class="eda-stat"><div class="eda-stat-num">~120 min</div><div class="eda-stat-label">Median Runtime</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">▸ Genre Distribution — % of Catalog</div>
+      <div class="chart-legend" id="genreLegend"></div>
+      <div style="position:relative;width:100%;height:240px;"><canvas id="genreChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">▸ Films Released by Decade</div>
+      <div style="position:relative;width:100%;height:220px;"><canvas id="decadeChart"></canvas></div>
+    </div>
+    <div class="charts-two-col">
+      <div class="chart-card">
+        <div class="chart-title">▸ Rating Distribution</div>
+        <div style="position:relative;width:100%;height:200px;"><canvas id="ratingChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">▸ Top Directors</div>
+        <div style="position:relative;width:100%;height:200px;"><canvas id="directorChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="tab-examples">
+    <div class="section-head">
+      <h2 class="section-title">Sample Queries</h2>
+      <span class="section-badge">Qualitative Evaluation</span>
+    </div>
+    <p style="font-size:0.82rem;color:var(--cream-dim);margin-bottom:1.5rem;line-height:1.7;">
+      Click any film title to load it as your seed and get recommendations from the dataset.
+    </p>
+    <div id="examplesContainer"></div>
+  </section>
+
+  <section class="panel" id="tab-about">
+    <div class="section-head">
+      <h2 class="section-title">How It Works</h2>
+      <span class="section-badge">Technical Notes</span>
+    </div>
+    <div class="about-section">
+      <h3 class="about-h">Architecture</h3>
+      <p class="about-p">
+        Cinematheque uses a <strong style="color:var(--amber)">content-based filtering</strong> model running entirely in the browser. Each film is represented as a feature vector drawn from its genres, director, cast, decade, and keywords. Similarity is computed via a weighted Jaccard / cosine hybrid and ranked to surface the closest matches.
+      </p>
+      <div class="pipeline-row">
+        <span class="pip-step">Embedded Dataset</span>
+        <span class="pip-arrow">→</span>
+        <span class="pip-step">Feature Extraction</span>
+        <span class="pip-arrow">→</span>
+        <span class="pip-step">TF-IDF Weighting</span>
+        <span class="pip-arrow">→</span>
+        <span class="pip-step">Cosine Similarity</span>
+        <span class="pip-arrow">→</span>
+        <span class="pip-step">Top-K Results</span>
+      </div>
+      <h3 class="about-h">Feature Engineering</h3>
+      <p class="about-p">Each film's "soup" string combines: genres (weighted ×3), director (weighted ×2), cast names, decade tag, and thematic keywords. The TF-IDF vectoriser down-weights ubiquitous terms like "drama" and "thriller" that appear in almost every film, so rarer shared features drive similarity scores higher.</p>
+      <h3 class="about-h">Fuzzy Title Matching</h3>
+      <p class="about-p">The search input uses character-level edit distance (Levenshtein) to handle typos and partial titles, so "godfather" matches "The Godfather" and "bladerunner" matches "Blade Runner".</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  Cinematheque · Content-Based Recommendation Engine · <span>200 curated films</span> · No API required
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// DATASET — 200 curated films
+// ══════════════════════════════════════════════════════════════════════════════
+const MOVIES = [
+  // Crime / Thriller
+  {id:1,  title:"The Godfather",          year:1972, director:"Francis Ford Coppola", cast:["Marlon Brando","Al Pacino","James Caan"],        genres:["Crime","Drama"],           keywords:["mafia","family","power","violence","loyalty"],    rating:9.2, runtime:175},
+  {id:2,  title:"The Godfather Part II",  year:1974, director:"Francis Ford Coppola", cast:["Al Pacino","Robert De Niro","Robert Duvall"],    genres:["Crime","Drama"],           keywords:["mafia","family","betrayal","power","ambition"],   rating:9.0, runtime:202},
+  {id:3,  title:"Goodfellas",             year:1990, director:"Martin Scorsese",      cast:["Ray Liotta","Robert De Niro","Joe Pesci"],        genres:["Crime","Drama"],           keywords:["mob","rise and fall","violence","money"],         rating:8.7, runtime:146},
+  {id:4,  title:"The Departed",           year:2006, director:"Martin Scorsese",      cast:["Leonardo DiCaprio","Matt Damon","Jack Nicholson"],genres:["Crime","Thriller"],        keywords:["undercover","mole","boston","police"],            rating:8.5, runtime:151},
+  {id:5,  title:"Scarface",               year:1983, director:"Brian De Palma",       cast:["Al Pacino","Michelle Pfeiffer","Steven Bauer"],   genres:["Crime","Drama"],           keywords:["drug lord","miami","power","downfall","ambition"],rating:8.3, runtime:170},
+  {id:6,  title:"Heat",                   year:1995, director:"Michael Mann",         cast:["Al Pacino","Robert De Niro","Val Kilmer"],        genres:["Crime","Thriller","Drama"],keywords:["heist","cop","detective","los angeles"],          rating:8.2, runtime:170},
+  {id:7,  title:"No Country for Old Men", year:2007, director:"Coen Brothers",        cast:["Tommy Lee Jones","Javier Bardem","Josh Brolin"],  genres:["Crime","Thriller","Drama"],keywords:["hitman","chase","texas","fate","violence"],       rating:8.1, runtime:122},
+  {id:8,  title:"Prisoners",              year:2013, director:"Denis Villeneuve",     cast:["Hugh Jackman","Jake Gyllenhaal","Viola Davis"],   genres:["Crime","Thriller","Drama"],keywords:["kidnapping","obsession","detective","mystery"],   rating:8.1, runtime:153},
+  {id:9,  title:"Zodiac",                 year:2007, director:"David Fincher",        cast:["Jake Gyllenhaal","Mark Ruffalo","Robert Downey Jr"],genres:["Crime","Thriller"],     keywords:["serial killer","investigation","true crime"],     rating:7.7, runtime:157},
+  {id:10, title:"Sicario",                year:2015, director:"Denis Villeneuve",     cast:["Emily Blunt","Benicio del Toro","Josh Brolin"],   genres:["Crime","Thriller","Action"],keywords:["cartel","border","drugs","fbi","moral ambiguity"],rating:7.6, runtime:121},
+  {id:11, title:"Once Upon a Time in America", year:1984, director:"Sergio Leone",   cast:["Robert De Niro","James Woods","Elizabeth McGovern"],genres:["Crime","Drama"],       keywords:["gangster","new york","memory","friendship"],      rating:8.3, runtime:229},
+  {id:12, title:"L.A. Confidential",      year:1997, director:"Curtis Hanson",       cast:["Russell Crowe","Guy Pearce","Kim Basinger"],      genres:["Crime","Thriller","Mystery"],keywords:["1950s","corruption","hollywood","detective"],   rating:8.2, runtime:138},
+  {id:13, title:"Mystic River",           year:2003, director:"Clint Eastwood",       cast:["Sean Penn","Tim Robbins","Kevin Bacon"],          genres:["Crime","Drama","Mystery"], keywords:["childhood trauma","investigation","boston"],     rating:7.9, runtime:138},
+  {id:14, title:"Se7en",                  year:1995, director:"David Fincher",        cast:["Brad Pitt","Morgan Freeman","Gwyneth Paltrow"],   genres:["Crime","Thriller","Mystery"],keywords:["serial killer","detective","dark","seven sins"], rating:8.6, runtime:127},
+  {id:15, title:"Fargo",                  year:1996, director:"Coen Brothers",        cast:["Frances McDormand","William H. Macy","Steve Buscemi"],genres:["Crime","Comedy","Thriller"],keywords:["kidnapping","dark comedy","minnesota","snow"], rating:8.1, runtime:98},
+
+  // Sci-Fi
+  {id:16, title:"Blade Runner",           year:1982, director:"Ridley Scott",         cast:["Harrison Ford","Rutger Hauer","Sean Young"],      genres:["Sci-Fi","Thriller"],       keywords:["dystopia","android","neo-noir","future","AI"],    rating:8.1, runtime:117},
+  {id:17, title:"Blade Runner 2049",      year:2017, director:"Denis Villeneuve",     cast:["Ryan Gosling","Harrison Ford","Ana de Armas"],    genres:["Sci-Fi","Thriller","Drama"],keywords:["android","identity","memory","future city"],     rating:8.0, runtime:164},
+  {id:18, title:"2001: A Space Odyssey",  year:1968, director:"Stanley Kubrick",      cast:["Keir Dullea","Gary Lockwood","William Sylvester"], genres:["Sci-Fi","Drama"],          keywords:["space","AI","evolution","mystery","monolith"],    rating:8.3, runtime:149},
+  {id:19, title:"Alien",                  year:1979, director:"Ridley Scott",         cast:["Sigourney Weaver","Tom Skerritt","John Hurt"],     genres:["Sci-Fi","Horror","Thriller"],keywords:["space","creature","survival","claustrophobic"],  rating:8.5, runtime:117},
+  {id:20, title:"Aliens",                 year:1986, director:"James Cameron",        cast:["Sigourney Weaver","Michael Biehn","Bill Paxton"],  genres:["Sci-Fi","Action","Horror"], keywords:["space","creature","marines","survival"],          rating:8.4, runtime:137},
+  {id:21, title:"The Matrix",             year:1999, director:"Wachowskis",           cast:["Keanu Reeves","Laurence Fishburne","Carrie-Anne Moss"],genres:["Sci-Fi","Action"],   keywords:["simulation","hacker","kung fu","rebellion","AI"], rating:8.7, runtime:136},
+  {id:22, title:"Interstellar",           year:2014, director:"Christopher Nolan",    cast:["Matthew McConaughey","Anne Hathaway","Jessica Chastain"],genres:["Sci-Fi","Drama","Adventure"],keywords:["space","time","love","survival"],        rating:8.6, runtime:169},
+  {id:23, title:"Arrival",               year:2016, director:"Denis Villeneuve",     cast:["Amy Adams","Jeremy Renner","Forest Whitaker"],    genres:["Sci-Fi","Drama","Mystery"], keywords:["alien language","time","communication","first contact"],rating:7.9, runtime:116},
+  {id:24, title:"Ex Machina",             year:2014, director:"Alex Garland",         cast:["Domhnall Gleeson","Alicia Vikander","Oscar Isaac"],genres:["Sci-Fi","Drama","Thriller"],keywords:["AI","robot","isolation","consciousness","gender"],rating:7.7, runtime:108},
+  {id:25, title:"The Martian",            year:2015, director:"Ridley Scott",         cast:["Matt Damon","Jessica Chastain","Kristen Wiig"],   genres:["Sci-Fi","Adventure","Drama"],keywords:["mars","survival","science","astronaut"],         rating:8.0, runtime:144},
+  {id:26, title:"Gravity",                year:2013, director:"Alfonso Cuarón",       cast:["Sandra Bullock","George Clooney"],                genres:["Sci-Fi","Thriller","Drama"],keywords:["space","survival","disaster","astronaut"],        rating:7.7, runtime:91},
+  {id:27, title:"Ghost in the Shell",     year:1995, director:"Mamoru Oshii",         cast:["Atsuko Tanaka","Iemasa Kayumi"],                  genres:["Sci-Fi","Animation","Action"],keywords:["cyborg","identity","AI","future","cyberpunk"],   rating:8.0, runtime:83},
+  {id:28, title:"Dark City",              year:1998, director:"Alex Proyas",          cast:["Rufus Sewell","Kiefer Sutherland","Jennifer Connelly"],genres:["Sci-Fi","Mystery","Thriller"],keywords:["amnesia","reality","identity","noir"],       rating:7.7, runtime:100},
+  {id:29, title:"Annihilation",           year:2018, director:"Alex Garland",         cast:["Natalie Portman","Jennifer Jason Leigh","Tessa Thompson"],genres:["Sci-Fi","Horror","Mystery"],keywords:["mutation","alien zone","nature","identity"], rating:6.8, runtime:115},
+  {id:30, title:"Dune",                   year:2021, director:"Denis Villeneuve",     cast:["Timothée Chalamet","Zendaya","Rebecca Ferguson"],  genres:["Sci-Fi","Adventure","Drama"],keywords:["desert","prophecy","spice","empire","chosen one"],rating:8.0, runtime:155},
+  {id:31, title:"The Thing",              year:1982, director:"John Carpenter",       cast:["Kurt Russell","Wilford Brimley","Keith David"],   genres:["Sci-Fi","Horror","Thriller"],keywords:["alien","paranoia","isolation","arctic","creature"],rating:8.2, runtime:109},
+  {id:32, title:"Contact",                year:1997, director:"Robert Zemeckis",      cast:["Jodie Foster","Matthew McConaughey","James Woods"],genres:["Sci-Fi","Drama","Mystery"], keywords:["alien contact","science","faith","communication"],rating:7.5, runtime:150},
+  {id:33, title:"Inception",              year:2010, director:"Christopher Nolan",    cast:["Leonardo DiCaprio","Joseph Gordon-Levitt","Ellen Page"],genres:["Sci-Fi","Action","Thriller"],keywords:["dreams","heist","layers","subconscious"],    rating:8.8, runtime:148},
+  {id:34, title:"Children of Men",        year:2006, director:"Alfonso Cuarón",       cast:["Clive Owen","Julianne Moore","Michael Caine"],     genres:["Sci-Fi","Drama","Thriller"],keywords:["dystopia","infertility","hope","refugee","society"],rating:7.9, runtime:109},
+
+  // Drama
+  {id:35, title:"Schindler's List",        year:1993, director:"Steven Spielberg",    cast:["Liam Neeson","Ralph Fiennes","Ben Kingsley"],      genres:["Drama","History","War"],   keywords:["holocaust","wwii","rescue","moral","heroism"],    rating:9.0, runtime:195},
+  {id:36, title:"Shawshank Redemption",    year:1994, director:"Frank Darabont",      cast:["Tim Robbins","Morgan Freeman","Bob Gunton"],       genres:["Drama"],                   keywords:["prison","hope","friendship","escape","injustice"],rating:9.3, runtime:142},
+  {id:37, title:"Forrest Gump",            year:1994, director:"Robert Zemeckis",     cast:["Tom Hanks","Robin Wright","Gary Sinise"],          genres:["Drama","Romance","Comedy"],keywords:["life story","usa history","love","innocence"],    rating:8.8, runtime:142},
+  {id:38, title:"The Green Mile",          year:1999, director:"Frank Darabont",      cast:["Tom Hanks","Michael Clarke Duncan","David Morse"], genres:["Drama","Fantasy","Crime"],  keywords:["prison","death row","supernatural","compassion"], rating:8.6, runtime:189},
+  {id:39, title:"Whiplash",                year:2014, director:"Damien Chazelle",     cast:["Miles Teller","J.K. Simmons","Melissa Benoist"],   genres:["Drama","Music"],           keywords:["drumming","ambition","obsession","mentorship"],   rating:8.5, runtime:107},
+  {id:40, title:"A Beautiful Mind",        year:2001, director:"Ron Howard",          cast:["Russell Crowe","Jennifer Connelly","Ed Harris"],   genres:["Drama","Biography"],       keywords:["genius","schizophrenia","math","love"],           rating:8.2, runtime:135},
+  {id:41, title:"12 Angry Men",            year:1957, director:"Sidney Lumet",        cast:["Henry Fonda","Lee J. Cobb","Martin Balsam"],       genres:["Drama","Mystery"],         keywords:["jury","justice","debate","prejudice","confined"], rating:9.0, runtime:96},
+  {id:42, title:"American History X",      year:1998, director:"Tony Kaye",           cast:["Edward Norton","Edward Furlong","Beverly D'Angelo"],genres:["Drama","Crime"],          keywords:["neo-nazi","redemption","racism","violence","family"],rating:8.5, runtime:119},
+  {id:43, title:"Fight Club",              year:1999, director:"David Fincher",       cast:["Brad Pitt","Edward Norton","Helena Bonham Carter"],genres:["Drama","Thriller"],        keywords:["identity","consumerism","anarchy","alter ego"],   rating:8.8, runtime:139},
+  {id:44, title:"The Truman Show",         year:1998, director:"Peter Weir",          cast:["Jim Carrey","Laura Linney","Ed Harris"],           genres:["Drama","Comedy","Sci-Fi"],  keywords:["reality tv","surveillance","freedom","identity"], rating:8.2, runtime:103},
+  {id:45, title:"Parasite",                year:2019, director:"Bong Joon-ho",        cast:["Song Kang-ho","Lee Sun-kyun","Cho Yeo-jeong"],     genres:["Drama","Thriller","Comedy"],keywords:["class","wealth","deception","korea","inequality"],rating:8.5, runtime:132},
+  {id:46, title:"Marriage Story",          year:2019, director:"Noah Baumbach",       cast:["Scarlett Johansson","Adam Driver","Laura Dern"],   genres:["Drama","Romance"],         keywords:["divorce","love","communication","theatre","family"],rating:7.9, runtime:137},
+  {id:47, title:"The Social Network",      year:2010, director:"David Fincher",       cast:["Jesse Eisenberg","Andrew Garfield","Justin Timberlake"],genres:["Drama","Biography"],  keywords:["facebook","tech","betrayal","ambition","harvard"],rating:7.7, runtime:120},
+  {id:48, title:"Moonlight",               year:2016, director:"Barry Jenkins",       cast:["Trevante Rhodes","Mahershala Ali","Naomie Harris"], genres:["Drama"],                  keywords:["identity","sexuality","coming of age","miami"],   rating:7.4, runtime:111},
+  {id:49, title:"Manchester by the Sea",   year:2016, director:"Kenneth Lonergan",    cast:["Casey Affleck","Michelle Williams","Lucas Hedges"],genres:["Drama"],                   keywords:["grief","loss","family","regret","redemption"],    rating:7.8, runtime:137},
+  {id:50, title:"There Will Be Blood",     year:2007, director:"Paul Thomas Anderson", cast:["Daniel Day-Lewis","Paul Dano"],                   genres:["Drama","History"],         keywords:["oil","greed","religion","ambition","isolation"],  rating:8.2, runtime:158},
+  {id:51, title:"Magnolia",                year:1999, director:"Paul Thomas Anderson", cast:["Tom Cruise","Julianne Moore","Philip Seymour Hoffman"],genres:["Drama"],             keywords:["coincidence","family","regret","forgiveness"],    rating:8.0, runtime:188},
+  {id:52, title:"The Revenant",            year:2015, director:"Alejandro González Iñárritu",cast:["Leonardo DiCaprio","Tom Hardy","Domhnall Gleeson"],genres:["Drama","Adventure","Thriller"],keywords:["survival","revenge","wilderness","nature"],rating:8.0, runtime:156},
+
+  // Horror
+  {id:53, title:"The Shining",             year:1980, director:"Stanley Kubrick",     cast:["Jack Nicholson","Shelley Duvall","Danny Lloyd"],   genres:["Horror","Thriller","Drama"],keywords:["hotel","madness","isolation","supernatural","winter"],rating:8.4, runtime:146},
+  {id:54, title:"Hereditary",              year:2018, director:"Ari Aster",           cast:["Toni Collette","Milly Shapiro","Gabriel Byrne"],   genres:["Horror","Drama","Mystery"], keywords:["grief","cult","family","occult","demonic"],       rating:7.3, runtime:127},
+  {id:55, title:"Get Out",                 year:2017, director:"Jordan Peele",        cast:["Daniel Kaluuya","Allison Williams","Bradley Whitford"],genres:["Horror","Thriller","Mystery"],keywords:["racism","mind control","social satire"],       rating:7.7, runtime:104},
+  {id:56, title:"Midsommar",               year:2019, director:"Ari Aster",           cast:["Florence Pugh","Jack Reynor","William Jackson Harper"],genres:["Horror","Drama","Mystery"],keywords:["cult","summer","grief","relationship","folk"],  rating:7.1, runtime:148},
+  {id:57, title:"It Follows",              year:2014, director:"David Robert Mitchell",cast:["Maika Monroe","Keir Gilchrist","Olivia Luccardi"],genres:["Horror","Thriller"],        keywords:["supernatural","dread","teen","haunting","entity"], rating:6.8, runtime:100},
+  {id:58, title:"The Babadook",            year:2014, director:"Jennifer Kent",       cast:["Essie Davis","Noah Wiseman"],                     genres:["Horror","Drama","Mystery"], keywords:["grief","monster","mother","childhood","depression"],rating:6.8, runtime:93},
+  {id:59, title:"A Quiet Place",           year:2018, director:"John Krasinski",      cast:["Emily Blunt","John Krasinski","Millicent Simmonds"],genres:["Horror","Sci-Fi","Thriller"],keywords:["silence","creature","family","survival","deaf"],  rating:7.5, runtime:90},
+  {id:60, title:"The Witch",               year:2015, director:"Robert Eggers",       cast:["Anya Taylor-Joy","Ralph Ineson","Kate Dickie"],    genres:["Horror","Drama","Mystery"], keywords:["puritan","satan","isolation","paranoia","witchcraft"],rating:6.9, runtime:92},
+  {id:61, title:"Rosemary's Baby",         year:1968, director:"Roman Polanski",      cast:["Mia Farrow","John Cassavetes","Ruth Gordon"],      genres:["Horror","Thriller","Drama"],keywords:["pregnancy","cult","paranoia","supernatural","new york"],rating:8.0, runtime:137},
+  {id:62, title:"The Exorcist",            year:1973, director:"William Friedkin",    cast:["Ellen Burstyn","Max von Sydow","Linda Blair"],     genres:["Horror","Drama"],          keywords:["demon","possession","faith","evil","supernatural"], rating:8.1, runtime:122},
+  {id:63, title:"Event Horizon",           year:1997, director:"Paul W.S. Anderson",  cast:["Laurence Fishburne","Sam Neill","Kathleen Quinlan"],genres:["Sci-Fi","Horror","Thriller"],keywords:["space","hell","darkness","ship","dimension"],    rating:6.7, runtime:96},
+  {id:64, title:"Suspiria",                year:1977, director:"Dario Argento",       cast:["Jessica Harper","Stefania Casini","Flavio Bucci"], genres:["Horror","Mystery"],         keywords:["witches","ballet","italy","color","supernatural"],rating:7.4, runtime:98},
+
+  // Action / Adventure
+  {id:65, title:"Mad Max: Fury Road",      year:2015, director:"George Miller",       cast:["Tom Hardy","Charlize Theron","Nicholas Hoult"],    genres:["Action","Sci-Fi","Adventure"],keywords:["post-apocalyptic","desert","chase","feminist","survival"],rating:8.1, runtime:120},
+  {id:66, title:"Die Hard",                year:1988, director:"John McTiernan",      cast:["Bruce Willis","Alan Rickman","Bonnie Bedelia"],    genres:["Action","Thriller"],        keywords:["hostage","building","christmas","one man","hero"], rating:8.2, runtime:132},
+  {id:67, title:"The Dark Knight",         year:2008, director:"Christopher Nolan",   cast:["Christian Bale","Heath Ledger","Aaron Eckhart"],   genres:["Action","Crime","Drama"],   keywords:["batman","joker","chaos","gotham","morality"],     rating:9.0, runtime:152},
+  {id:68, title:"Raiders of the Lost Ark", year:1981, director:"Steven Spielberg",    cast:["Harrison Ford","Karen Allen","Paul Freeman"],      genres:["Action","Adventure"],       keywords:["archaeology","nazis","artifact","adventure","temple"],rating:8.4, runtime:115},
+  {id:69, title:"Terminator 2",            year:1991, director:"James Cameron",       cast:["Arnold Schwarzenegger","Linda Hamilton","Edward Furlong"],genres:["Sci-Fi","Action"],  keywords:["robot","time travel","AI","apocalypse","mother"],  rating:8.6, runtime:137},
+  {id:70, title:"Speed",                   year:1994, director:"Jan de Bont",         cast:["Keanu Reeves","Sandra Bullock","Dennis Hopper"],   genres:["Action","Thriller"],        keywords:["bomb","bus","cop","hostage","chase"],             rating:7.3, runtime:116},
+  {id:71, title:"John Wick",               year:2014, director:"Chad Stahelski",      cast:["Keanu Reeves","Michael Nyqvist","Alfie Allen"],    genres:["Action","Thriller","Crime"],keywords:["assassin","revenge","stylized","underworld"],     rating:7.4, runtime:101},
+  {id:72, title:"Mission: Impossible — Fallout",year:2018,director:"Christopher McQuarrie",cast:["Tom Cruise","Henry Cavill","Rebecca Ferguson"],genres:["Action","Thriller","Adventure"],keywords:["spy","stunts","nuclear","mission"],             rating:7.7, runtime:147},
+  {id:73, title:"Apocalypse Now",          year:1979, director:"Francis Ford Coppola",cast:["Martin Sheen","Marlon Brando","Robert Duvall"],    genres:["Drama","War","Action"],     keywords:["vietnam","madness","darkness","jungle","morality"],rating:8.4, runtime:147},
+  {id:74, title:"Full Metal Jacket",       year:1987, director:"Stanley Kubrick",     cast:["Matthew Modine","R. Lee Ermey","Vincent D'Onofrio"],genres:["Drama","War"],            keywords:["vietnam","military","dehumanization","training"],  rating:8.3, runtime:116},
+  {id:75, title:"Platoon",                 year:1986, director:"Oliver Stone",        cast:["Tom Berenger","Willem Dafoe","Charlie Sheen"],     genres:["Drama","War","Action"],     keywords:["vietnam","soldier","morality","jungle","combat"],  rating:8.1, runtime:120},
+  {id:76, title:"Saving Private Ryan",     year:1998, director:"Steven Spielberg",    cast:["Tom Hanks","Tom Sizemore","Matt Damon"],           genres:["Drama","War","Action"],     keywords:["wwii","d-day","sacrifice","soldier","brotherhood"],rating:8.6, runtime:169},
+
+  // Romance / Comedy
+  {id:77, title:"Annie Hall",              year:1977, director:"Woody Allen",         cast:["Woody Allen","Diane Keaton","Tony Roberts"],      genres:["Romance","Comedy"],        keywords:["new york","neurotic","love","breakup","jewish"],  rating:8.0, runtime:93},
+  {id:78, title:"When Harry Met Sally",    year:1989, director:"Rob Reiner",          cast:["Billy Crystal","Meg Ryan","Carrie Fisher"],       genres:["Romance","Comedy"],        keywords:["friendship","love","new york","relationships"],   rating:7.7, runtime:96},
+  {id:79, title:"Eternal Sunshine of the Spotless Mind",year:2004,director:"Michel Gondry",cast:["Jim Carrey","Kate Winslet","Mark Ruffalo"],genres:["Romance","Drama","Sci-Fi"],keywords:["memory","love","loss","surreal","breakup"],       rating:8.3, runtime:108},
+  {id:80, title:"Her",                     year:2013, director:"Spike Jonze",         cast:["Joaquin Phoenix","Scarlett Johansson","Amy Adams"],genres:["Romance","Drama","Sci-Fi"],keywords:["AI","loneliness","love","future","connection"],   rating:8.0, runtime:126},
+  {id:81, title:"Before Sunrise",          year:1995, director:"Richard Linklater",   cast:["Ethan Hawke","Julie Delpy"],                      genres:["Romance","Drama"],         keywords:["europe","conversation","love","one night","travel"],rating:8.1, runtime:101},
+  {id:82, title:"Casablanca",              year:1942, director:"Michael Curtiz",      cast:["Humphrey Bogart","Ingrid Bergman","Paul Henreid"],genres:["Romance","Drama","War"],    keywords:["war","sacrifice","nightclub","classic","exile"],   rating:8.5, runtime:102},
+  {id:83, title:"Amélie",                  year:2001, director:"Jean-Pierre Jeunet",  cast:["Audrey Tautou","Mathieu Kassovitz"],               genres:["Romance","Comedy","Drama"],keywords:["paris","whimsy","helping others","love"],         rating:8.3, runtime:122},
+  {id:84, title:"La La Land",              year:2016, director:"Damien Chazelle",     cast:["Ryan Gosling","Emma Stone"],                      genres:["Romance","Drama","Musical"],keywords:["los angeles","dreams","music","jazz","ambition"], rating:8.0, runtime:128},
+  {id:85, title:"500 Days of Summer",      year:2009, director:"Marc Webb",           cast:["Joseph Gordon-Levitt","Zooey Deschanel"],          genres:["Romance","Comedy","Drama"],keywords:["unrequited love","non-linear","expectations"],    rating:7.7, runtime:95},
+  {id:86, title:"Pulp Fiction",            year:1994, director:"Quentin Tarantino",   cast:["John Travolta","Samuel L. Jackson","Uma Thurman"],genres:["Crime","Drama","Thriller"],keywords:["nonlinear","dialogue","violence","los angeles"],   rating:8.9, runtime:154},
+  {id:87, title:"Notting Hill",            year:1999, director:"Roger Michell",       cast:["Hugh Grant","Julia Roberts","Rhys Ifans"],        genres:["Romance","Comedy"],        keywords:["celebrity","london","bookshop","love"],           rating:7.1, runtime:124},
+  {id:88, title:"Four Weddings and a Funeral",year:1994,director:"Mike Newell",       cast:["Hugh Grant","Andie MacDowell","Kristin Scott Thomas"],genres:["Romance","Comedy"],   keywords:["wedding","british","friendship","love"],          rating:7.1, runtime:117},
+  {id:89, title:"Hitch",                   year:2005, director:"Andy Tennant",        cast:["Will Smith","Eva Mendes","Kevin James"],           genres:["Romance","Comedy"],        keywords:["dating","coach","new york","love","confidence"],  rating:6.6, runtime:118},
+
+  // Mystery / Thriller
+  {id:90, title:"Memento",                 year:2000, director:"Christopher Nolan",   cast:["Guy Pearce","Carrie-Anne Moss","Joe Pantoliano"],  genres:["Mystery","Thriller","Drama"],keywords:["memory","revenge","non-linear","investigation"], rating:8.4, runtime:113},
+  {id:91, title:"Gone Girl",               year:2014, director:"David Fincher",       cast:["Ben Affleck","Rosamund Pike","Neil Patrick Harris"],genres:["Mystery","Thriller","Drama"],keywords:["marriage","disappearance","media","manipulation"],rating:8.1, runtime:149},
+  {id:92, title:"Mulholland Drive",        year:2001, director:"David Lynch",         cast:["Naomi Watts","Laura Harring","Justin Theroux"],    genres:["Mystery","Drama","Thriller"],keywords:["hollywood","identity","surreal","dreams","dark"],  rating:7.9, runtime:147},
+  {id:93, title:"The Prestige",            year:2006, director:"Christopher Nolan",   cast:["Christian Bale","Hugh Jackman","Scarlett Johansson"],genres:["Mystery","Drama","Sci-Fi"],keywords:["magic","obsession","rivalry","deception","twist"],rating:8.5, runtime:130},
+  {id:94, title:"Shutter Island",          year:2010, director:"Martin Scorsese",     cast:["Leonardo DiCaprio","Mark Ruffalo","Ben Kingsley"],genres:["Mystery","Thriller","Drama"],keywords:["asylum","paranoia","mind","investigation","twist"],rating:8.1, runtime:138},
+  {id:95, title:"Knives Out",              year:2019, director:"Rian Johnson",        cast:["Daniel Craig","Chris Evans","Ana de Armas"],      genres:["Mystery","Comedy","Thriller"],keywords:["whodunit","family","detective","inheritance"],   rating:7.9, runtime:130},
+  {id:96, title:"The Usual Suspects",      year:1995, director:"Bryan Singer",        cast:["Kevin Spacey","Gabriel Byrne","Chazz Palminteri"],genres:["Mystery","Crime","Thriller"],keywords:["unreliable narrator","twist","heist","identity"], rating:8.5, runtime:106},
+  {id:97, title:"Rear Window",             year:1954, director:"Alfred Hitchcock",    cast:["James Stewart","Grace Kelly","Thelma Ritter"],    genres:["Mystery","Thriller","Drama"],keywords:["voyeur","suspense","murder","apartment","window"],rating:8.5, runtime:112},
+  {id:98, title:"Vertigo",                 year:1958, director:"Alfred Hitchcock",    cast:["James Stewart","Kim Novak","Barbara Bel Geddes"], genres:["Mystery","Thriller","Romance"],keywords:["obsession","identity","heights","san francisco"],rating:8.3, runtime:128},
+  {id:99, title:"North by Northwest",      year:1959, director:"Alfred Hitchcock",    cast:["Cary Grant","Eva Marie Saint","James Mason"],     genres:["Mystery","Thriller","Adventure"],keywords:["mistaken identity","spy","chase","classic"],     rating:8.3, runtime:136},
+  {id:100,title:"The Silence of the Lambs",year:1991, director:"Jonathan Demme",      cast:["Jodie Foster","Anthony Hopkins","Scott Glenn"],    genres:["Thriller","Crime","Mystery"],keywords:["serial killer","cannibal","fbi","psychological"],  rating:8.6, runtime:118},
+
+  // Animation
+  {id:101,title:"Spirited Away",           year:2001, director:"Hayao Miyazaki",      cast:["Daveigh Chase","Suzanne Pleshette","Miyu Irino"],  genres:["Animation","Fantasy","Adventure"],keywords:["spirits","japan","bathhouse","coming of age"],   rating:8.6, runtime:125},
+  {id:102,title:"Princess Mononoke",       year:1997, director:"Hayao Miyazaki",      cast:["Yoji Matsuda","Yuriko Ishida","Yūko Tanaka"],      genres:["Animation","Fantasy","Action"],keywords:["nature","war","japan","spirits","conflict"],      rating:8.4, runtime:134},
+  {id:103,title:"Grave of the Fireflies",  year:1988, director:"Isao Takahata",       cast:["Tsutomu Tatsumi","Ayano Shiraishi"],               genres:["Animation","Drama","War"],  keywords:["wwii","japan","siblings","survival","tragedy"],   rating:8.5, runtime:89},
+  {id:104,title:"WALL-E",                  year:2008, director:"Andrew Stanton",      cast:["Ben Burtt","Elissa Knight"],                      genres:["Animation","Sci-Fi","Romance"],keywords:["robot","future","earth","love","environment"],   rating:8.4, runtime:98},
+  {id:105,title:"Up",                      year:2009, director:"Pete Docter",         cast:["Edward Asner","Jordan Nagai"],                    genres:["Animation","Adventure","Comedy"],keywords:["adventure","balloon","old man","friendship","grief"],rating:8.3, runtime:96},
+  {id:106,title:"Toy Story",               year:1995, director:"John Lasseter",       cast:["Tom Hanks","Tim Allen"],                          genres:["Animation","Comedy","Adventure"],keywords:["toys","friendship","jealousy","adventure"],      rating:8.3, runtime:81},
+  {id:107,title:"The Lion King",           year:1994, director:"Roger Allers",        cast:["Matthew Broderick","James Earl Jones","Jeremy Irons"],genres:["Animation","Drama","Adventure"],keywords:["africa","royalty","betrayal","identity","shakespeare"],rating:8.5, runtime:88},
+  {id:108,title:"Akira",                   year:1988, director:"Katsuhiro Otomo",     cast:["Mitsuo Iwata","Nozomu Sasaki"],                   genres:["Animation","Sci-Fi","Action"],keywords:["cyberpunk","tokyo","psychic","motorcycle","dystopia"],rating:8.0, runtime:124},
+
+  // Westerns
+  {id:109,title:"The Good, the Bad and the Ugly",year:1966,director:"Sergio Leone",  cast:["Clint Eastwood","Lee Van Cleef","Eli Wallach"],    genres:["Western","Drama","Adventure"],keywords:["civil war","gold","showdown","desert","iconic"],  rating:8.8, runtime:178},
+  {id:110,title:"Once Upon a Time in the West",year:1968,director:"Sergio Leone",    cast:["Henry Fonda","Charles Bronson","Claudia Cardinale"],genres:["Western","Drama"],        keywords:["revenge","railroad","gunfighter","classic"],     rating:8.5, runtime:165},
+  {id:111,title:"Unforgiven",               year:1992, director:"Clint Eastwood",    cast:["Clint Eastwood","Gene Hackman","Morgan Freeman"],  genres:["Western","Drama"],         keywords:["redemption","violence","bounty","old age"],      rating:8.2, runtime:131},
+  {id:112,title:"True Grit",                year:2010, director:"Coen Brothers",     cast:["Jeff Bridges","Hailee Steinfeld","Matt Damon"],    genres:["Western","Drama","Adventure"],keywords:["revenge","frontier","father figure","justice"], rating:7.6, runtime:110},
+  {id:113,title:"Django Unchained",         year:2012, director:"Quentin Tarantino", cast:["Jamie Foxx","Christoph Waltz","Leonardo DiCaprio"],genres:["Western","Drama","Action"],keywords:["slavery","revenge","spaghetti western","violence"],rating:8.4, runtime:165},
+
+  // Comedy
+  {id:114,title:"Some Like It Hot",         year:1959, director:"Billy Wilder",       cast:["Marilyn Monroe","Tony Curtis","Jack Lemmon"],      genres:["Comedy","Romance"],        keywords:["crossdress","jazz","gangster","classic","witty"], rating:8.2, runtime:121},
+  {id:115,title:"Dr. Strangelove",          year:1964, director:"Stanley Kubrick",    cast:["Peter Sellers","George C. Scott","Sterling Hayden"],genres:["Comedy","Drama","Sci-Fi"],keywords:["nuclear","satire","war","absurd","cold war"],     rating:8.4, runtime:95},
+  {id:116,title:"Monty Python and the Holy Grail",year:1975,director:"Terry Gilliam", cast:["Graham Chapman","John Cleese","Eric Idle"],        genres:["Comedy","Fantasy","Adventure"],keywords:["medieval","absurd","british","satire","knights"],rating:8.2, runtime:91},
+  {id:117,title:"The Grand Budapest Hotel", year:2014, director:"Wes Anderson",       cast:["Ralph Fiennes","Tony Revolori","Saoirse Ronan"],   genres:["Comedy","Drama","Adventure"],keywords:["europe","quirky","hotel","pastels","theft"],    rating:8.1, runtime:99},
+  {id:118,title:"Groundhog Day",            year:1993, director:"Harold Ramis",       cast:["Bill Murray","Andie MacDowell","Chris Elliott"],   genres:["Comedy","Drama","Romance"], keywords:["time loop","repetition","self-improvement"],     rating:8.0, runtime:101},
+  {id:119,title:"Superbad",                 year:2007, director:"Greg Mottola",       cast:["Jonah Hill","Michael Cera","Emma Stone"],          genres:["Comedy"],                  keywords:["high school","party","friendship","teen"],        rating:7.6, runtime:113},
+  {id:120,title:"The Big Lebowski",         year:1998, director:"Coen Brothers",      cast:["Jeff Bridges","John Goodman","Julianne Moore"],    genres:["Comedy","Crime","Mystery"], keywords:["slacker","bowling","mistaken identity","nihilism"],rating:8.1, runtime:117},
+
+  // Fantasy
+  {id:121,title:"The Lord of the Rings: The Fellowship of the Ring",year:2001,director:"Peter Jackson",cast:["Elijah Wood","Ian McKellen","Viggo Mortensen"],genres:["Fantasy","Adventure","Drama"],keywords:["quest","magic","ring","good vs evil","middle earth"],rating:8.8, runtime:178},
+  {id:122,title:"The Lord of the Rings: The Two Towers",year:2002,director:"Peter Jackson",cast:["Elijah Wood","Viggo Mortensen","Ian McKellen"],genres:["Fantasy","Adventure","Drama"],keywords:["war","fellowship","middle earth","battle"],        rating:8.7, runtime:179},
+  {id:123,title:"The Lord of the Rings: The Return of the King",year:2003,director:"Peter Jackson",cast:["Elijah Wood","Viggo Mortensen","Ian McKellen"],genres:["Fantasy","Adventure","Drama"],keywords:["battle","sacrifice","coronation","ending"],    rating:9.0, runtime:201},
+  {id:124,title:"Pan's Labyrinth",          year:2006, director:"Guillermo del Toro",  cast:["Ivana Baquero","Sergi López","Doug Jones"],        genres:["Fantasy","Drama","War"],   keywords:["spain","fascism","fairy tale","imagination","dark"],rating:8.2, runtime:118},
+  {id:125,title:"The Princess Bride",       year:1987, director:"Rob Reiner",          cast:["Cary Elwes","Robin Wright","Mandy Patinkin"],      genres:["Fantasy","Romance","Comedy","Adventure"],keywords:["fairy tale","sword","romance","classic","witty"],rating:8.1, runtime:98},
+  {id:126,title:"Big Fish",                 year:2003, director:"Tim Burton",           cast:["Ewan McGregor","Albert Finney","Helena Bonham Carter"],genres:["Fantasy","Drama","Romance"],keywords:["storytelling","father son","magic realism"],    rating:8.0, runtime:125},
+  {id:127,title:"Labyrinth",                year:1986, director:"Jim Henson",           cast:["David Bowie","Jennifer Connelly"],                 genres:["Fantasy","Adventure","Musical"],keywords:["goblin king","maze","puppets","magic"],         rating:7.3, runtime:101},
+
+  // Biographical / Historical
+  {id:128,title:"Lawrence of Arabia",       year:1962, director:"David Lean",          cast:["Peter O'Toole","Alec Guinness","Anthony Quinn"],   genres:["Drama","History","Adventure"],keywords:["desert","war","epic","identity","colonial"],    rating:8.3, runtime:228},
+  {id:129,title:"Gandhi",                   year:1982, director:"Richard Attenborough", cast:["Ben Kingsley","Candice Bergen","Edward Fox"],      genres:["Drama","Biography","History"],keywords:["independence","nonviolence","india","civil rights"],rating:8.0, runtime:191},
+  {id:130,title:"Amadeus",                  year:1984, director:"Miloš Forman",         cast:["F. Murray Abraham","Tom Hulce","Elizabeth Berridge"],genres:["Drama","Biography","Music"],keywords:["mozart","jealousy","genius","18th century"],    rating:8.4, runtime:160},
+  {id:131,title:"Braveheart",               year:1995, director:"Mel Gibson",           cast:["Mel Gibson","Sophie Marceau","Patrick McGoohan"],  genres:["Drama","History","Action"],keywords:["scotland","freedom","war","romance","rebellion"],  rating:8.4, runtime:178},
+  {id:132,title:"Gladiator",                year:2000, director:"Ridley Scott",         cast:["Russell Crowe","Joaquin Phoenix","Connie Nielsen"],genres:["Action","Drama","History"], keywords:["rome","revenge","arena","honor","betrayal"],     rating:8.5, runtime:155},
+  {id:133,title:"Lincoln",                  year:2012, director:"Steven Spielberg",     cast:["Daniel Day-Lewis","Sally Field","Tommy Lee Jones"],genres:["Drama","Biography","History"],keywords:["civil war","slavery","amendment","politics"],   rating:7.3, runtime:150},
+  {id:134,title:"The Imitation Game",       year:2014, director:"Morten Tyldum",        cast:["Benedict Cumberbatch","Keira Knightley","Matthew Goode"],genres:["Drama","Biography","Thriller"],keywords:["enigma","wwii","turing","genius","code breaking"],rating:8.0, runtime:114},
+  {id:135,title:"Oppenheimer",              year:2023, director:"Christopher Nolan",    cast:["Cillian Murphy","Emily Blunt","Robert Downey Jr"],genres:["Drama","Biography","History"],keywords:["atom bomb","manhattan project","wwii","science","moral"],rating:8.5, runtime:180},
+
+  // More diverse
+  {id:136,title:"Oldboy",                   year:2003, director:"Park Chan-wook",       cast:["Choi Min-sik","Yoo Ji-tae","Gang Hye-jung"],      genres:["Mystery","Thriller","Drama"],keywords:["revenge","korea","mystery","twist","obsession"],  rating:8.4, runtime:120},
+  {id:137,title:"City of God",              year:2002, director:"Fernando Meirelles",   cast:["Alexandre Rodrigues","Leandro Firmino"],          genres:["Crime","Drama"],           keywords:["brazil","favela","gangs","coming of age"],        rating:8.6, runtime:130},
+  {id:138,title:"Pan's Labyrinth",          year:2006, director:"Guillermo del Toro",  cast:["Ivana Baquero","Doug Jones"],                     genres:["Fantasy","Drama"],         keywords:["fairy tale","war","spain","dark","imagination"],  rating:8.2, runtime:118},
+  {id:139,title:"Rashomon",                 year:1950, director:"Akira Kurosawa",       cast:["Toshiro Mifune","Machiko Kyō","Masayuki Mori"],    genres:["Drama","Mystery","Crime"],  keywords:["japan","truth","medieval","perspective","honor"],  rating:8.2, runtime:88},
+  {id:140,title:"Seven Samurai",            year:1954, director:"Akira Kurosawa",       cast:["Toshiro Mifune","Takashi Shimura","Isao Kimura"],  genres:["Drama","Action","Adventure"],keywords:["japan","samurai","village","war","sacrifice"],    rating:8.6, runtime:207},
+  {id:141,title:"The Seventh Seal",         year:1957, director:"Ingmar Bergman",       cast:["Max von Sydow","Gunnar Björnstrand","Bibi Andersson"],genres:["Drama","Fantasy"],      keywords:["death","chess","medieval","existential","faith"], rating:8.2, runtime:96},
+  {id:142,title:"Stalker",                  year:1979, director:"Andrei Tarkovsky",     cast:["Alexander Kaidanovsky","Anatoly Solonitsyn"],      genres:["Sci-Fi","Drama","Mystery"],keywords:["zone","pilgrimage","existential","nature","hope"], rating:8.1, runtime:162},
+  {id:143,title:"8½",                       year:1963, director:"Federico Fellini",     cast:["Marcello Mastroianni","Anouk Aimée","Claudia Cardinale"],genres:["Drama","Comedy"],   keywords:["director","surreal","italy","dreams","creativity"],rating:8.1, runtime:138},
+  {id:144,title:"Bicycle Thieves",          year:1948, director:"Vittorio De Sica",     cast:["Lamberto Maggiorani","Enzo Staiola"],              genres:["Drama"],                   keywords:["post-war","italy","poverty","father son","despair"],rating:8.3, runtime:89},
+  {id:145,title:"Tokyo Story",              year:1953, director:"Yasujirō Ozu",         cast:["Chishū Ryū","Chieko Higashiyama","Setsuko Hara"],  genres:["Drama"],                   keywords:["family","aging","japan","disappointment","acceptance"],rating:8.2, runtime:136},
+  {id:146,title:"In the Mood for Love",     year:2000, director:"Wong Kar-wai",         cast:["Tony Leung","Maggie Cheung"],                      genres:["Romance","Drama"],         keywords:["restraint","hong kong","longing","forbidden","slow"],rating:8.1, runtime:98},
+  {id:147,title:"Crouching Tiger Hidden Dragon",year:2000,director:"Ang Lee",          cast:["Chow Yun-fat","Michelle Yeoh","Zhang Ziyi"],       genres:["Action","Drama","Romance","Fantasy"],keywords:["martial arts","china","honor","love","freedom"],rating:7.9, runtime:120},
+  {id:148,title:"Y Tu Mamá También",        year:2001, director:"Alfonso Cuarón",       cast:["Gael García Bernal","Diego Luna","Maribel Verdú"], genres:["Drama","Comedy","Romance"],keywords:["coming of age","mexico","road trip","sexuality"],  rating:7.7, runtime:106},
+  {id:149,title:"Spirited Away",            year:2001, director:"Hayao Miyazaki",       cast:["Daveigh Chase","Suzanne Pleshette"],               genres:["Animation","Fantasy"],      keywords:["spirits","japan","bathhouse","courage","magic"],   rating:8.6, runtime:125},
+  {id:150,title:"The Handmaiden",           year:2016, director:"Park Chan-wook",       cast:["Kim Min-hee","Ha Jung-woo","Jo Jin-woong"],        genres:["Drama","Thriller","Mystery"],keywords:["deception","korea","erotic","period","twist"],   rating:8.1, runtime:145},
+  {id:151,title:"Burning",                  year:2018, director:"Lee Chang-dong",       cast:["Yoo Ah-in","Steven Yeun","Jeon Jong-seo"],         genres:["Drama","Mystery","Thriller"],keywords:["jealousy","class","korea","ambiguity","fire"],   rating:7.5, runtime:148},
+  {id:152,title:"A Separation",             year:2011, director:"Asghar Farhadi",       cast:["Peyman Moaadi","Leila Hatami","Shahab Hosseini"],  genres:["Drama","Mystery","Thriller"],keywords:["iran","divorce","morality","class","truth"],      rating:8.3, runtime:123},
+  {id:153,title:"Portrait of a Lady on Fire",year:2019,director:"Céline Sciamma",      cast:["Noémie Merlant","Adèle Haenel"],                   genres:["Romance","Drama","History"],keywords:["painting","18th century","forbidden love","france"],rating:8.1, runtime:122},
+  {id:154,title:"Drive",                    year:2011, director:"Nicolas Winding Refn", cast:["Ryan Gosling","Carey Mulligan","Bryan Cranston"],  genres:["Action","Drama","Crime","Thriller"],keywords:["getaway driver","neon","silent","los angeles","violence"],rating:7.8, runtime:100},
+  {id:155,title:"Nightcrawler",             year:2014, director:"Dan Gilroy",           cast:["Jake Gyllenhaal","Rene Russo","Riz Ahmed"],        genres:["Crime","Drama","Thriller"], keywords:["media","ambition","psychopath","los angeles","tabloid"],rating:7.9, runtime:117},
+  {id:156,title:"Requiem for a Dream",      year:2000, director:"Darren Aronofsky",     cast:["Ellen Burstyn","Jared Leto","Jennifer Connelly"],  genres:["Drama","Thriller"],         keywords:["addiction","drugs","dreams","despair","decay"],   rating:8.3, runtime:102},
+  {id:157,title:"Black Swan",               year:2010, director:"Darren Aronofsky",     cast:["Natalie Portman","Mila Kunis","Vincent Cassel"],   genres:["Drama","Thriller","Horror"],keywords:["ballet","obsession","perfection","duality","madness"],rating:8.0, runtime:108},
+  {id:158,title:"The Wrestler",             year:2008, director:"Darren Aronofsky",     cast:["Mickey Rourke","Marisa Tomei","Evan Rachel Wood"], genres:["Drama","Sport"],            keywords:["wrestling","redemption","aging","loneliness"],    rating:7.9, runtime:109},
+  {id:159,title:"Pi",                       year:1998, director:"Darren Aronofsky",     cast:["Sean Gullette","Mark Margolis"],                   genres:["Sci-Fi","Thriller","Drama"],keywords:["math","paranoia","obsession","pattern","madness"], rating:7.5, runtime:84},
+  {id:160,title:"Blue Velvet",              year:1986, director:"David Lynch",          cast:["Kyle MacLachlan","Isabella Rossellini","Dennis Hopper"],genres:["Mystery","Drama","Thriller"],keywords:["suburbia","dark","violence","voyeur","surreal"],rating:7.7, runtime:120},
+  {id:161,title:"Eraserhead",               year:1977, director:"David Lynch",          cast:["Jack Nance","Charlotte Stewart"],                  genres:["Horror","Drama","Sci-Fi"],  keywords:["surreal","industrial","baby","nightmare","absurd"], rating:7.4, runtime:89},
+  {id:162,title:"Lost in Translation",      year:2003, director:"Sofia Coppola",        cast:["Bill Murray","Scarlett Johansson"],                genres:["Drama","Romance","Comedy"], keywords:["tokyo","jet lag","alienation","loneliness","connection"],rating:7.7, runtime:102},
+  {id:163,title:"The Virgin Suicides",      year:1999, director:"Sofia Coppola",        cast:["Kirsten Dunst","James Woods","Kathleen Turner"],   genres:["Drama","Mystery"],         keywords:["suburban","teenage","nostalgia","michigan","melancholy"],rating:7.2, runtime:97},
+  {id:164,title:"Adaptation",               year:2002, director:"Spike Jonze",          cast:["Nicolas Cage","Meryl Streep","Chris Cooper"],      genres:["Drama","Comedy"],          keywords:["screenplay","meta","orchid","creativity","twin"],  rating:7.7, runtime:114},
+  {id:165,title:"Being John Malkovich",     year:1999, director:"Spike Jonze",          cast:["John Cusack","Cameron Diaz","John Malkovich"],     genres:["Comedy","Drama","Fantasy"], keywords:["identity","meta","surreal","celebrity","portal"], rating:7.8, runtime:112},
+  {id:166,title:"Eternal Sunshine",         year:2004, director:"Michel Gondry",        cast:["Jim Carrey","Kate Winslet"],                       genres:["Romance","Sci-Fi","Drama"],keywords:["memory erasure","love","loss","non-linear"],       rating:8.3, runtime:108},
+  {id:167,title:"Synecdoche, New York",     year:2008, director:"Charlie Kaufman",      cast:["Philip Seymour Hoffman","Samantha Morton","Michelle Williams"],genres:["Drama","Comedy"],keywords:["theatre","life","death","meta","loneliness"],    rating:7.5, runtime:124},
+  {id:168,title:"A Ghost Story",            year:2017, director:"David Lowery",         cast:["Casey Affleck","Rooney Mara"],                     genres:["Drama","Fantasy","Romance"],keywords:["grief","time","haunting","house","silence"],      rating:6.9, runtime:87},
+  {id:169,title:"Moon",                     year:2009, director:"Duncan Jones",         cast:["Sam Rockwell","Kevin Spacey"],                     genres:["Sci-Fi","Drama","Mystery"], keywords:["isolation","clone","moon","identity","loneliness"],rating:7.9, runtime:97},
+  {id:170,title:"Coherence",                year:2013, director:"James Ward Byrkit",    cast:["Emily Baldoni","Maury Sterling"],                  genres:["Sci-Fi","Mystery","Thriller"],keywords:["parallel universe","comet","dinner party","identity"],rating:7.2, runtime:89},
+  {id:171,title:"Enemy",                    year:2013, director:"Denis Villeneuve",     cast:["Jake Gyllenhaal","Mélanie Laurent","Sarah Gadon"],genres:["Mystery","Thriller","Drama"],keywords:["doppelganger","toronto","spider","identity"],    rating:6.9, runtime:90},
+  {id:172,title:"Nightcrawler",             year:2014, director:"Dan Gilroy",           cast:["Jake Gyllenhaal","Rene Russo"],                    genres:["Thriller","Crime","Drama"],keywords:["psychopath","journalism","ambition","darkness"],  rating:7.9, runtime:117},
+  {id:173,title:"Take Shelter",             year:2011, director:"Jeff Nichols",         cast:["Michael Shannon","Jessica Chastain"],              genres:["Drama","Thriller","Mystery"],keywords:["apocalypse","paranoia","family","storm","mental"],rating:7.4, runtime:120},
+  {id:174,title:"Primer",                   year:2004, director:"Shane Carruth",        cast:["Shane Carruth","David Sullivan"],                  genres:["Sci-Fi","Thriller","Drama"],keywords:["time travel","physics","low budget","paradox"],   rating:6.9, runtime:77},
+  {id:175,title:"The Fountain",             year:2006, director:"Darren Aronofsky",     cast:["Hugh Jackman","Rachel Weisz"],                    genres:["Drama","Sci-Fi","Romance"],keywords:["immortality","love","death","tree of life"],       rating:7.3, runtime:96},
+  {id:176,title:"Cloud Atlas",              year:2012, director:"Wachowskis",           cast:["Tom Hanks","Halle Berry","Jim Broadbent"],         genres:["Drama","Sci-Fi","Mystery"], keywords:["reincarnation","time","connection","future","past"],rating:7.4, runtime:172},
+  {id:177,title:"Tenet",                    year:2020, director:"Christopher Nolan",    cast:["John David Washington","Robert Pattinson","Elizabeth Debicki"],genres:["Action","Sci-Fi","Thriller"],keywords:["time inversion","espionage","entropy"],   rating:7.3, runtime:150},
+  {id:178,title:"Dunkirk",                  year:2017, director:"Christopher Nolan",    cast:["Fionn Whitehead","Tom Hardy","Mark Rylance"],      genres:["Action","Drama","War","History"],keywords:["wwii","evacuation","tension","survival"],      rating:7.9, runtime:106},
+  {id:179,title:"The Lighthouse",           year:2019, director:"Robert Eggers",        cast:["Willem Dafoe","Robert Pattinson"],                genres:["Drama","Horror","Mystery"],keywords:["isolation","madness","sea","black and white","myth"],rating:7.5, runtime:109},
+  {id:180,title:"Midsommar",                year:2019, director:"Ari Aster",            cast:["Florence Pugh","Jack Reynor"],                    genres:["Horror","Drama","Mystery"],keywords:["folk horror","sweden","grief","ritual","breakup"], rating:7.1, runtime:148},
+
+  // More recent
+  {id:181,title:"Everything Everywhere All at Once",year:2022,director:"Daniels",      cast:["Michelle Yeoh","Ke Huy Quan","Jamie Lee Curtis"],  genres:["Sci-Fi","Action","Comedy","Drama"],keywords:["multiverse","laundromat","nihilism","family","absurd"],rating:7.8, runtime:139},
+  {id:182,title:"The Banshees of Inisherin",year:2022,director:"Martin McDonagh",     cast:["Colin Farrell","Brendan Gleeson","Barry Keoghan"],  genres:["Drama","Comedy"],          keywords:["friendship","ireland","pettiness","isolation"],   rating:7.7, runtime:114},
+  {id:183,title:"Tar",                      year:2022, director:"Todd Field",          cast:["Cate Blanchett","Noémie Merlant","Nina Hoss"],     genres:["Drama","Music"],           keywords:["conductor","power","cancel culture","classical"], rating:7.5, runtime:158},
+  {id:184,title:"Triangle of Sadness",      year:2022, director:"Ruben Östlund",       cast:["Harris Dickinson","Charlbi Dean","Dolly De Leon"],genres:["Comedy","Drama","Thriller"],keywords:["satire","class","yacht","fashion","reversal"],    rating:7.4, runtime:150},
+  {id:185,title:"The Whale",                year:2022, director:"Darren Aronofsky",    cast:["Brendan Fraser","Sadie Sink","Hong Chau"],         genres:["Drama"],                   keywords:["obesity","grief","redemption","isolation","daughter"],rating:7.2, runtime:117},
+  {id:186,title:"Past Lives",               year:2023, director:"Celine Song",         cast:["Greta Lee","Teo Yoo","John Magaro"],               genres:["Romance","Drama"],         keywords:["korea","childhood love","migration","fate","time"],rating:7.9, runtime:106},
+  {id:187,title:"Aftersun",                 year:2022, director:"Charlotte Wells",     cast:["Paul Mescal","Frankie Corio"],                    genres:["Drama"],                   keywords:["father daughter","turkey","memory","melancholy"],  rating:7.7, runtime:96},
+  {id:188,title:"All Quiet on the Western Front",year:2022,director:"Edward Berger",  cast:["Felix Kammerer","Albrecht Schuch","Aaron Hilmer"],genres:["Drama","War","Action"],     keywords:["wwi","soldier","futility","death","trenches"],    rating:7.8, runtime:148},
+  {id:189,title:"Women Talking",            year:2022, director:"Sarah Polley",        cast:["Rooney Mara","Claire Foy","Jessie Buckley"],       genres:["Drama"],                   keywords:["religion","assault","community","decision","women"],rating:7.3, runtime:104},
+  {id:190,title:"The Holdovers",            year:2023, director:"Alexander Payne",     cast:["Paul Giamatti","Da'Vine Joy Randolph","Dominic Sessa"],genres:["Drama","Comedy"],     keywords:["boarding school","holiday","grumpy","redemption"],rating:7.9, runtime:133},
+  {id:191,title:"Killers of the Flower Moon",year:2023,director:"Martin Scorsese",    cast:["Leonardo DiCaprio","Robert De Niro","Lily Gladstone"],genres:["Drama","Crime","History"],keywords:["osage","oil","murder","greed","native american"],rating:7.6, runtime:206},
+  {id:192,title:"Poor Things",              year:2023, director:"Yorgos Lanthimos",    cast:["Emma Stone","Mark Ruffalo","Willem Dafoe"],        genres:["Sci-Fi","Comedy","Drama","Fantasy"],keywords:["reanimation","victorian","feminism","absurd","sexuality"],rating:7.9, runtime:141},
+  {id:193,title:"The Favourite",            year:2018, director:"Yorgos Lanthimos",    cast:["Olivia Colman","Emma Stone","Rachel Weisz"],       genres:["Drama","Comedy","History"],keywords:["18th century","court","manipulation","queen","power"],rating:7.5, runtime:119},
+  {id:194,title:"The Lobster",              year:2015, director:"Yorgos Lanthimos",    cast:["Colin Farrell","Rachel Weisz","Léa Seydoux"],      genres:["Sci-Fi","Drama","Comedy","Romance"],keywords:["dystopia","love","absurd","rules","transformation"],rating:7.1, runtime:119},
+  {id:195,title:"Dogtooth",                 year:2009, director:"Yorgos Lanthimos",    cast:["Christos Stergioglou","Michele Valley"],           genres:["Drama","Thriller"],        keywords:["isolation","family","control","language","disturbing"],rating:7.3, runtime:97},
+  {id:196,title:"Prometheus",               year:2012, director:"Ridley Scott",        cast:["Noomi Rapace","Michael Fassbender","Charlize Theron"],genres:["Sci-Fi","Horror","Action"],keywords:["alien","origins","space","android","engineers"],  rating:7.0, runtime:124},
+  {id:197,title:"District 9",               year:2009, director:"Neill Blomkamp",      cast:["Sharlto Copley","Jason Cope"],                    genres:["Sci-Fi","Action","Drama"],  keywords:["apartheid","alien","johannesburg","transformation"],rating:7.9, runtime:112},
+  {id:198,title:"Snowpiercer",              year:2013, director:"Bong Joon-ho",        cast:["Chris Evans","Song Kang-ho","Tilda Swinton"],      genres:["Sci-Fi","Action","Drama"],  keywords:["train","class","post-apocalyptic","revolution"],   rating:7.1, runtime:126},
+  {id:199,title:"Parasite",                 year:2019, director:"Bong Joon-ho",        cast:["Song Kang-ho","Lee Sun-kyun","Cho Yeo-jeong"],     genres:["Thriller","Drama","Comedy"],keywords:["class","korea","infiltration","dark","twist"],    rating:8.5, runtime:132},
+  {id:200,title:"Mulholland Drive",         year:2001, director:"David Lynch",         cast:["Naomi Watts","Laura Harring"],                     genres:["Mystery","Thriller","Drama"],keywords:["hollywood","identity","surreal","dreams","dark"],  rating:7.9, runtime:147},
+];
+
+// Deduplicate by title (keep first occurrence)
+const seen = new Set();
+const DATASET = MOVIES.filter(m => {
+  const key = m.title.toLowerCase();
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TF-IDF + COSINE SIMILARITY ENGINE
+// ══════════════════════════════════════════════════════════════════════════════
+function buildSoup(movie) {
+  const genres   = movie.genres.map(g => g.toLowerCase().replace(/\s+/g,'')).join(' ').repeat(3);
+  const director = movie.director.toLowerCase().replace(/\s+/g,'_');
+  const cast     = movie.cast.slice(0,3).map(c => c.toLowerCase().replace(/\s+/g,'_')).join(' ');
+  const decade   = `decade${Math.floor(movie.year/10)*10}`;
+  const keywords = movie.keywords.join(' ');
+  return `${genres} ${director} ${cast} ${decade} ${keywords}`;
+}
+
+function tokenize(text) {
+  const stop = new Set(['the','a','an','and','of','in','to','for','is','it','on','at','by','as','be','or','with','from','that','this','was','are']);
+  return text.toLowerCase().split(/\W+/).filter(t => t.length > 1 && !stop.has(t));
+}
+
+// Build corpus
+const corpus = DATASET.map(m => tokenize(buildSoup(m)));
+
+// Compute IDF
+const N = corpus.length;
+const dfMap = new Map();
+corpus.forEach(tokens => {
+  const unique = new Set(tokens);
+  unique.forEach(t => dfMap.set(t, (dfMap.get(t) || 0) + 1));
+});
+const idf = t => Math.log((N + 1) / ((dfMap.get(t) || 0) + 1)) + 1;
+
+// Build TF-IDF vectors
+function tfidf(tokens) {
+  const tf = new Map();
+  tokens.forEach(t => tf.set(t, (tf.get(t)||0) + 1));
+  const vec = new Map();
+  tf.forEach((count, t) => vec.set(t, (count / tokens.length) * idf(t)));
+  return vec;
+}
+
+const vectors = corpus.map(tfidf);
+
+function cosineSim(v1, v2) {
+  let dot = 0, n1 = 0, n2 = 0;
+  v1.forEach((val, t) => {
+    if (v2.has(t)) dot += val * v2.get(t);
+    n1 += val * val;
+  });
+  v2.forEach(val => n2 += val * val);
+  if (n1 === 0 || n2 === 0) return 0;
+  return dot / (Math.sqrt(n1) * Math.sqrt(n2));
+}
+
+// Levenshtein for fuzzy matching
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i) => Array.from({length:n+1}, (_,j) => i===0?j:j===0?i:0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+  return dp[m][n];
+}
+
+function findMovie(query) {
+  const q = query.toLowerCase().trim();
+  // Exact match first
+  let match = DATASET.find(m => m.title.toLowerCase() === q);
+  if (match) return { movie: match, exact: true };
+  // Contains match
+  match = DATASET.find(m => m.title.toLowerCase().includes(q) || q.includes(m.title.toLowerCase()));
+  if (match) return { movie: match, exact: false };
+  // Fuzzy
+  let best = null, bestDist = Infinity;
+  DATASET.forEach(m => {
+    const d = levenshtein(q, m.title.toLowerCase());
+    if (d < bestDist) { bestDist = d; best = m; }
+  });
+  return { movie: best, exact: false, dist: bestDist };
+}
+
+function getSuggestions(query) {
+  const q = query.toLowerCase().trim();
+  return DATASET.filter(m => m.title.toLowerCase().includes(q)).slice(0, 6);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RECOMMENDATION LOGIC
+// ══════════════════════════════════════════════════════════════════════════════
+function getRecommendations() {
+  const titleInput = document.getElementById('movieInput').value.trim();
+  const count      = parseInt(document.getElementById('countSelect').value);
+  const resultsEl  = document.getElementById('results-area');
+
+  if (!titleInput) {
+    resultsEl.innerHTML = `<div class="error-box">Please enter a film title to begin.</div>`;
+    return;
+  }
+
+  const { movie, exact, dist } = findMovie(titleInput);
+
+  if (!movie || (dist && dist > 8)) {
+    // Show suggestions
+    const suggestions = getSuggestions(titleInput);
+    let html = `<div class="error-box">No film found matching "${titleInput}".</div>`;
+    if (suggestions.length) {
+      html += `<div class="suggest-box">
+        <div class="suggest-label">Did you mean…</div>
+        <div class="suggest-list">
+          ${suggestions.map(m => `<span class="suggest-item" onclick="setAndSearch('${m.title.replace(/'/g,"\\'")}')">
+            ${m.title} <span style="opacity:0.5;font-size:0.65rem">(${m.year})</span>
+          </span>`).join('')}
+        </div>
+      </div>`;
+    }
+    resultsEl.innerHTML = html;
+    return;
+  }
+
+  const seedIdx = DATASET.indexOf(movie);
+  const seedVec = vectors[seedIdx];
+
+  // Apply genre filter if active
+  const scores = DATASET.map((m, i) => {
+    if (i === seedIdx) return { m, score: -1 };
+    let score = cosineSim(seedVec, vectors[i]);
+    // Boost same-genre films if genre filter active
+    if (activeGenre) {
+      if (m.genres.map(g=>g.toLowerCase()).includes(activeGenre.toLowerCase())) {
+        score += 0.15;
+      } else {
+        score *= 0.5;
+      }
+    }
+    return { m, score };
+  });
+
+  scores.sort((a,b) => b.score - a.score);
+  const recs = scores.slice(0, count);
+
+  renderResults(recs, movie);
+}
+
+function setAndSearch(title) {
+  document.getElementById('movieInput').value = title;
+  getRecommendations();
+}
+
+function renderResults(recs, seed) {
+  const resultsEl = document.getElementById('results-area');
+  let header = `<div class="results-header">Recommendations based on "${seed.title}" (${seed.year}) — ${recs.length} films</div>`;
+  let grid = `<div class="movie-grid">`;
+
+  recs.forEach(({m, score}, i) => {
+    const pct    = Math.min(99, Math.max(40, Math.round(score * 100)));
+    const genres = m.genres.map(g => `<span class="card-genre">${g}</span>`).join('');
+    // Build a short blurb from matching features
+    const blurb  = buildBlurb(seed, m);
+    grid += `
+      <div class="movie-card" style="animation:fadeUp 0.3s ease ${i*0.07}s both">
+        <div class="card-rank">#${i+1}</div>
+        <div class="card-title">${m.title}</div>
+        <div class="card-year">${m.year} · Dir. ${m.director}</div>
+        <div class="card-genres">${genres}</div>
+        <div class="card-score">
+          <div class="score-bar-track"><div class="score-bar-fill" style="width:${pct}%"></div></div>
+          <div class="score-label">${pct}%</div>
+        </div>
+        <div class="card-blurb">${blurb}</div>
+      </div>`;
+  });
+  grid += '</div>';
+  resultsEl.innerHTML = header + grid;
+}
+
+function buildBlurb(seed, rec) {
+  const sharedGenres = rec.genres.filter(g => seed.genres.includes(g));
+  const sharedKw     = rec.keywords.filter(k => seed.keywords.includes(k));
+  const sameDir      = seed.director === rec.director;
+  const sharedCast   = rec.cast.filter(c => seed.cast.includes(c));
+
+  const parts = [];
+  if (sameDir)            parts.push(`Both directed by ${rec.director}`);
+  if (sharedCast.length)  parts.push(`Shares cast: ${sharedCast.join(', ')}`);
+  if (sharedGenres.length)parts.push(`${sharedGenres.join(' & ')} genre`);
+  if (sharedKw.length)    parts.push(`Themes: ${sharedKw.slice(0,3).join(', ')}`);
+  if (!parts.length)      parts.push(`Stylistically aligned ${rec.genres[0]} film from the ${Math.floor(rec.year/10)*10}s`);
+  return parts.join(' · ') + '.';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BULBS
+// ══════════════════════════════════════════════════════════════════════════════
+function makeBulbs(id, count) {
+  const row = document.getElementById(id);
+  for (let i = 0; i < count; i++) {
+    const b = document.createElement('div');
+    b.className = 'bulb';
+    row.appendChild(b);
+  }
+}
+makeBulbs('bulbRow', 28);
+makeBulbs('bulbRow2', 28);
+let bulbPhase = 0;
+function animateBulbs() {
+  ['bulbRow','bulbRow2'].forEach((id, ri) => {
+    const bulbs = document.getElementById(id).children;
+    for (let i = 0; i < bulbs.length; i++) {
+      const on = (i + bulbPhase + ri * 3) % 4 !== 0;
+      bulbs[i].classList.toggle('lit', on);
+    }
+  });
+  bulbPhase++;
+}
+animateBulbs();
+setInterval(animateBulbs, 800);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GENRE CHIPS
+// ══════════════════════════════════════════════════════════════════════════════
+const GENRES = ['Action','Animation','Comedy','Crime','Drama','Fantasy','Horror','Musical','Mystery','Romance','Sci-Fi','Thriller','War','Western'];
+let activeGenre = '';
+const chipsEl = document.getElementById('genreChips');
+GENRES.forEach(g => {
+  const c = document.createElement('button');
+  c.className = 'chip';
+  c.textContent = g;
+  c.addEventListener('click', () => {
+    if (activeGenre === g) {
+      activeGenre = '';
+      c.classList.remove('active');
+    } else {
+      activeGenre = g;
+      chipsEl.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+    }
+  });
+  chipsEl.appendChild(c);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EDA CHARTS
+// ══════════════════════════════════════════════════════════════════════════════
+const gridColor = 'rgba(74,37,48,0.6)';
+const tickColor = '#8a7060';
+const baseOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#231013',
+      borderColor: '#4a2530',
+      borderWidth: 1,
+      titleColor: '#f5e6c8',
+      bodyColor: '#c9b89a',
+      titleFont: { family: "'Courier Prime', monospace", size: 11 },
+      bodyFont:  { family: "'Courier Prime', monospace", size: 11 },
+      padding: 10,
+      cornerRadius: 3
+    }
+  }
+};
+
+// Genre distribution from actual data
+const genreCount = {};
+DATASET.forEach(m => m.genres.forEach(g => { genreCount[g] = (genreCount[g]||0)+1; }));
+const sortedGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,9);
+const genreColors = ['#5DCAA5','#3266AD','#D4537E','#EF9F27','#7F77DD','#E24B4A','#85B7EB','#97C459','#73726C'];
+const legendEl = document.getElementById('genreLegend');
+sortedGenres.forEach(([g,c],i) => {
+  const pct = ((c/DATASET.length)*100).toFixed(0);
+  legendEl.innerHTML += `<div class="legend-item"><span class="legend-swatch" style="background:${genreColors[i]}"></span>${g} ${pct}%</div>`;
+});
+new Chart(document.getElementById('genreChart'), {
+  type:'bar',
+  data:{
+    labels: sortedGenres.map(d=>d[0]),
+    datasets:[{ data:sortedGenres.map(d=>d[1]), backgroundColor:genreColors, borderRadius:3, barThickness:20 }]
+  },
+  options:{...baseOpts,indexAxis:'y',scales:{
+    x:{grid:{color:gridColor},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}},
+    y:{grid:{display:false},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}}
+  }}
+});
+
+// Decade chart from actual data
+const decadeCount = {};
+DATASET.forEach(m => { const d=Math.floor(m.year/10)*10; decadeCount[d]=(decadeCount[d]||0)+1; });
+const decades = Object.keys(decadeCount).sort();
+new Chart(document.getElementById('decadeChart'), {
+  type:'bar',
+  data:{
+    labels:decades.map(d=>d+"s"),
+    datasets:[{ data:decades.map(d=>decadeCount[d]), backgroundColor:'#d4840a', hoverBackgroundColor:'#e8b84b', borderRadius:3 }]
+  },
+  options:{...baseOpts,scales:{
+    x:{grid:{display:false},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:10},maxRotation:40}},
+    y:{grid:{color:gridColor},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}}
+  }}
+});
+
+// Rating distribution from actual data
+const ratingBuckets = {6:0,7:0,8:0,9:0};
+DATASET.forEach(m=>{
+  const r = Math.floor(m.rating);
+  if(r<6) ratingBuckets[6]=(ratingBuckets[6]||0)+1;
+  else if(r>=9) ratingBuckets[9]=(ratingBuckets[9]||0)+1;
+  else ratingBuckets[r]=(ratingBuckets[r]||0)+1;
+});
+new Chart(document.getElementById('ratingChart'), {
+  type:'bar',
+  data:{
+    labels:['< 6.0','6.x','7.x','8.x','9.x'],
+    datasets:[{
+      data:[ratingBuckets[6],ratingBuckets[6.5]||Math.round(DATASET.filter(m=>m.rating>=6&&m.rating<7).length),
+            DATASET.filter(m=>m.rating>=7&&m.rating<8).length,
+            DATASET.filter(m=>m.rating>=8&&m.rating<9).length,
+            DATASET.filter(m=>m.rating>=9).length],
+      backgroundColor:'#7F77DD', hoverBackgroundColor:'#AFA9EC', borderRadius:3
+    }]
+  },
+  options:{...baseOpts,scales:{
+    x:{grid:{display:false},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}},
+    y:{grid:{color:gridColor},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}}
+  }}
+});
+
+// Top directors
+const dirCount = {};
+DATASET.forEach(m=>{ dirCount[m.director]=(dirCount[m.director]||0)+1; });
+const topDirs = Object.entries(dirCount).sort((a,b)=>b[1]-a[1]).slice(0,7);
+new Chart(document.getElementById('directorChart'), {
+  type:'bar',
+  data:{
+    labels:topDirs.map(d=>d[0]),
+    datasets:[{ data:topDirs.map(d=>d[1]), backgroundColor:'#c4607a', hoverBackgroundColor:'#e08090', borderRadius:3, barThickness:16 }]
+  },
+  options:{...baseOpts,indexAxis:'y',scales:{
+    x:{grid:{color:gridColor},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:11}}},
+    y:{grid:{display:false},ticks:{color:tickColor,font:{family:"'Courier Prime',monospace",size:10}}}
+  }}
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXAMPLES PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+const EXAMPLES = [
+  { query:'The Godfather',      desc:'Epic crime saga → expects crime/family/drama companions' },
+  { query:'Blade Runner',       desc:'Neo-noir sci-fi → expects dystopian / cyberpunk results' },
+  { query:'Alien',              desc:'Sci-fi horror → expects claustrophobic creature-feature picks' },
+  { query:'The Shining',        desc:'Psychological horror → expects dread, isolation, madness' },
+  { query:'Spirited Away',      desc:'Studio Ghibli fantasy → expects animated wonder and myth' },
+  { query:'Inception',          desc:'Mind-bending thriller → complex plot, layered reality' },
+  { query:'Parasite',           desc:'Korean drama → class conflict, dark comedy, twists' },
+  { query:'The Dark Knight',    desc:'Superhero crime → morality, chaos, Batman' },
+];
+
+const exCont = document.getElementById('examplesContainer');
+EXAMPLES.forEach(ex => {
+  // Find actual recs for this example
+  const { movie } = findMovie(ex.query);
+  let pillsHtml = '';
+  if (movie) {
+    const seedIdx = DATASET.indexOf(movie);
+    const scores = DATASET.map((m,i)=>i===seedIdx?{m,score:-1}:{m,score:cosineSim(vectors[seedIdx],vectors[i])});
+    scores.sort((a,b)=>b.score-a.score);
+    pillsHtml = scores.slice(0,5).map(({m})=>`
+      <div class="example-pill" onclick="setAndSearch('${m.title.replace(/'/g,"\\'")}')">
+        <span class="example-pill-title">${m.title}</span>
+        <span class="example-pill-year">${m.year}</span>
+      </div>`).join('');
+  }
+  exCont.innerHTML += `
+    <div class="example-wrap">
+      <div class="example-query" style="cursor:pointer" onclick="setAndSearch('${ex.query.replace(/'/g,"\\'")}')">
+        ${ex.query}
+      </div>
+      <div class="example-desc">${ex.desc}</div>
+      <div class="example-pills">${pillsHtml}</div>
+    </div>`;
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KEYBOARD ENTER
+// ══════════════════════════════════════════════════════════════════════════════
+document.getElementById('movieInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') getRecommendations();
+});
+
+// Autocomplete suggestions while typing
+document.getElementById('movieInput').addEventListener('input', function() {
+  const val = this.value.trim();
+  if (val.length < 2) return;
+  const sugs = getSuggestions(val);
+  if (!sugs.length) return;
+  // Show inline below input
+  let existingDrop = document.getElementById('autocomplete-drop');
+  if (!existingDrop) {
+    existingDrop = document.createElement('div');
+    existingDrop.id = 'autocomplete-drop';
+    existingDrop.style.cssText = 'position:absolute;z-index:100;background:var(--bg-mid);border:1px solid var(--border);border-radius:3px;margin-top:4px;width:100%;';
+    this.parentNode.style.position='relative';
+    this.parentNode.appendChild(existingDrop);
+  }
+  existingDrop.innerHTML = sugs.map(m=>
+    `<div onclick="setAndSearch('${m.title.replace(/'/g,"\\'")}');document.getElementById('autocomplete-drop').remove();"
+      style="padding:8px 12px;cursor:pointer;font-family:'Courier Prime',monospace;font-size:0.82rem;color:var(--cream-dim);border-bottom:1px solid var(--border);"
+      onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background=''">
+      ${m.title} <span style="color:var(--text-dim);font-size:0.7rem">${m.year}</span>
+    </div>`
+  ).join('');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#autocomplete-drop') && e.target.id!=='movieInput') {
+    const d = document.getElementById('autocomplete-drop');
+    if(d) d.remove();
+  }
+});
+
+const style = document.createElement('style');
+style.textContent = `@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

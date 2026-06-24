@@ -68,8 +68,6 @@ Interactive Exploratory Data Analysis (EDA) dashboard featuring:
 * Runs directly in browser
 * Zero hosting cost
 
----
-
 🧠 Machine Learning Concepts Used
 
 Although implemented in JavaScript, this project demonstrates real-world recommender system concepts:
